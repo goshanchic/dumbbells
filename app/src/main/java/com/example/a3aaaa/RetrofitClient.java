@@ -5,7 +5,6 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 public class RetrofitClient {
     private static final String BASE_URL = "https://mocki.io/";
-
     private static Retrofit retrofit;
 
     public static ApiService getApiService() {
@@ -18,3 +17,7 @@ public class RetrofitClient {
         return retrofit.create(ApiService.class);
     }
 }
+
+
+
+

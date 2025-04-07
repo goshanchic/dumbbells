@@ -10,15 +10,20 @@ public class MainActivity3 extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main2);
+        setContentView(R.layout.activity_main2);  // Используем activity_main2.xml
 
-        Button startButton = findViewById(R.id.startButton);
-        startButton.setOnClickListener(v -> {
-            Intent intent = new Intent(MainActivity3.this, MainActivity4.class);
-            startActivity(intent);
+        Button startButton = findViewById(R.id.startButton);  // Ищем кнопку с ID startButton
+        startButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // Переход на MainActivity4
+                Intent intent = new Intent(MainActivity3.this, MainActivity4.class);
+                startActivity(intent);
+            }
         });
     }
 }
+
 
 /*
 «// Пустышки — без действия пока

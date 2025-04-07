@@ -1,19 +1,18 @@
-package com.example.a3aaaa;
+/* package com.example.a3aaaa;
 
 import android.os.Bundle;
 import android.os.Handler;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
-
 import java.util.List;
-
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
-public class MainActivity extends AppCompatActivity {
-    private GraphView graphView;
-    private TextView feedbackText;
+public class GraphActivity extends AppCompatActivity {
+
+    private GraphView graphView; // Наш кастомный View для графика
+    private TextView feedbackText; // Текст для отображения правильности выполнения
     private Handler handler;
     private Runnable runnable;
     private List<Float> idealCoordinatesX, idealCoordinatesY, idealCoordinatesZ;
@@ -22,20 +21,20 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_main); // activity_graph.xml
 
-        graphView = findViewById(R.id.graphView);
-        feedbackText = findViewById(R.id.feedbackText);
+        graphView = findViewById(R.id.graphView); // Получаем ссылку на кастомный GraphView
+        feedbackText = findViewById(R.id.feedbackText); // Для текста о правильности выполнения
 
         handler = new Handler();
         ApiService apiService = RetrofitClient.getApiService();
 
-        fetchExerciseData(apiService);
+        fetchExerciseData(apiService); // Загружаем эталонные данные для координат
 
         runnable = new Runnable() {
             @Override
             public void run() {
-                checkExercise();
+                checkExercise(); // Проверяем, правильно ли выполняется упражнение
                 handler.postDelayed(this, 100); // Повторяем каждую 100 миллисекунд
             }
         };
@@ -51,7 +50,7 @@ public class MainActivity extends AppCompatActivity {
                     idealCoordinatesY = response.body().getIdealCoordinatesY();
                     idealCoordinatesZ = response.body().getIdealCoordinatesZ();
                     threshold = response.body().getThreshold();
-                    updateGraph();
+                    updateGraph(); // Обновляем график с этими данными
                 } else {
                     feedbackText.setText("Ошибка загрузки данных!");
                 }
@@ -65,15 +64,18 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateGraph() {
+        // Обновляем график с новыми данными (X, Y, Z)
         graphView.updateData(idealCoordinatesX, idealCoordinatesY, idealCoordinatesZ);
     }
 
     private void checkExercise() {
+        // Логика для проверки выполнения упражнения
         if (idealCoordinatesX == null || idealCoordinatesY == null || idealCoordinatesZ == null) {
             feedbackText.setText("Загрузка данных...");
             return;
         }
 
+        // Проверяем текущие координаты с эталонными
         List<Float> currentCoordinatesX = graphView.getCurrentDataX();
         List<Float> currentCoordinatesY = graphView.getCurrentDataY();
         List<Float> currentCoordinatesZ = graphView.getCurrentDataZ();
@@ -105,6 +107,7 @@ public class MainActivity extends AppCompatActivity {
     }
 }
 
+ */
 
 
 
