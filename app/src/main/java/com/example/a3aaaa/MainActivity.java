@@ -1,11 +1,13 @@
+
 package com.example.a3aaaa;
 
 import android.os.Bundle;
 import android.os.Handler;
+import android.view.View;
+import android.widget.LinearLayout;
 import android.widget.TextView;
-import androidx.appcompat.app.AppCompatActivity;
 
-import java.util.List;
+import androidx.appcompat.app.AppCompatActivity;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -14,10 +16,12 @@ import retrofit2.Response;
 public class MainActivity extends AppCompatActivity {
     private GraphView graphView;
     private TextView feedbackText;
-    private Handler handler;
-    private Runnable runnable;
-    private List<Float> idealCoordinatesX, idealCoordinatesY, idealCoordinatesZ;
-    private float threshold;
+    private LinearLayout feedbackCard;
+
+    private Handler dataHandler, checkHandler;
+    private Runnable dataRunnable, checkRunnable;
+
+    private float lastX = 0, lastY = 0, lastZ = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -26,86 +30,77 @@ public class MainActivity extends AppCompatActivity {
 
         graphView = findViewById(R.id.graphView);
         feedbackText = findViewById(R.id.feedbackText);
+        feedbackCard = findViewById(R.id.feedbackCard);
 
-        handler = new Handler();
         ApiService apiService = RetrofitClient.getApiService();
 
-        fetchExerciseData(apiService);
-
-        runnable = new Runnable() {
+        // Получение данных каждые 100 мс
+        dataHandler = new Handler();
+        dataRunnable = new Runnable() {
             @Override
             public void run() {
-                checkExercise();
-                handler.postDelayed(this, 100); // Повторяем каждую 100 миллисекунд
+                fetchLiveData(apiService);
+                dataHandler.postDelayed(this, 100);
             }
         };
-        handler.post(runnable);
+        dataHandler.post(dataRunnable);
+
+        // Проверка выполнения раз в 10 секунд
+        checkHandler = new Handler();
+        checkRunnable = new Runnable() {
+            @Override
+            public void run() {
+                validateExercise();
+                checkHandler.postDelayed(this, 10000);
+            }
+        };
+        checkHandler.post(checkRunnable);
     }
 
-    private void fetchExerciseData(ApiService apiService) {
+    private void fetchLiveData(ApiService apiService) {
         apiService.getExerciseData().enqueue(new Callback<ExerciseData>() {
             @Override
             public void onResponse(Call<ExerciseData> call, Response<ExerciseData> response) {
                 if (response.isSuccessful() && response.body() != null) {
-                    idealCoordinatesX = response.body().getIdealCoordinatesX();
-                    idealCoordinatesY = response.body().getIdealCoordinatesY();
-                    idealCoordinatesZ = response.body().getIdealCoordinatesZ();
-                    threshold = response.body().getThreshold();
-                    updateGraph();
+                    ExerciseData data = response.body();
+                    lastX = data.getX();
+                    lastY = data.getY();
+                    lastZ = data.getZ();
+
+                    graphView.addPoint(lastX, lastY, lastZ);
                 } else {
                     feedbackText.setText("Ошибка загрузки данных!");
                 }
             }
 
             @Override
+
             public void onFailure(Call<ExerciseData> call, Throwable t) {
                 feedbackText.setText("Ошибка сети: " + t.getMessage());
             }
         });
     }
 
-    private void updateGraph() {
-        graphView.updateData(idealCoordinatesX, idealCoordinatesY, idealCoordinatesZ);
-    }
+    private void validateExercise() {
+        float threshold = 1.0f; // можно вынести в настройку
 
-    private void checkExercise() {
-        if (idealCoordinatesX == null || idealCoordinatesY == null || idealCoordinatesZ == null) {
-            feedbackText.setText("Загрузка данных...");
-            return;
-        }
+        boolean isCorrect = Math.abs(lastX) < threshold &&
+                Math.abs(lastY) < threshold &&
+                Math.abs(lastZ) < threshold;
 
-        List<Float> currentCoordinatesX = graphView.getCurrentDataX();
-        List<Float> currentCoordinatesY = graphView.getCurrentDataY();
-        List<Float> currentCoordinatesZ = graphView.getCurrentDataZ();
-
-        if (compareCoordinates(currentCoordinatesX, idealCoordinatesX) &&
-                compareCoordinates(currentCoordinatesY, idealCoordinatesY) &&
-                compareCoordinates(currentCoordinatesZ, idealCoordinatesZ)) {
-            feedbackText.setText("✅ Упражнение выполнено правильно!");
+        if (isCorrect) {
+            feedbackCard.setBackgroundColor(getResources().getColor(android.R.color.holo_green_light));
+            feedbackText.setText("✅ Правильно");
         } else {
-            feedbackText.setText("⚠️ Ошибка в технике!");
+            feedbackCard.setBackgroundColor(getResources().getColor(android.R.color.holo_red_light));
+            feedbackText.setText("❌ Неправильно");
         }
-    }
-
-    private boolean compareCoordinates(List<Float> current, List<Float> ideal) {
-        if (current.size() != ideal.size()) return false;
-
-        for (int i = 0; i < current.size(); i++) {
-            if (Math.abs(current.get(i) - ideal.get(i)) > threshold) {
-                return false;
-            }
-        }
-        return true;
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        handler.removeCallbacks(runnable);
+        dataHandler.removeCallbacks(dataRunnable);
+        checkHandler.removeCallbacks(checkRunnable);
     }
 }
-
-
-
-
-
