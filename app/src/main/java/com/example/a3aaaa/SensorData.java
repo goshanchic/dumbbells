@@ -1,6 +1,6 @@
 package com.example.a3aaaa;
 
-public class SensorData {
+/* public class SensorData {
     private String timestamp;
     private int sensorId;
     private float x;
@@ -28,4 +28,6 @@ public class SensorData {
         return z;
     }
 }
+
+ */
 

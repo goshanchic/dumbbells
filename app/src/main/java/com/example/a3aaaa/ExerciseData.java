@@ -1,4 +1,4 @@
-package com.example.a3aaaa;
+ package com.example.a3aaaa;
 
 public class ExerciseData {
     private long timestamp;
@@ -22,5 +22,6 @@ public class ExerciseData {
         return z;
     }
 }
+
 
 
