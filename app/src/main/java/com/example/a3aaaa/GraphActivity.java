@@ -1,3 +1,139 @@
+package com.example.a3aaaa;
+
+import android.Manifest;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.content.pm.PackageManager;
+import android.os.Bundle;
+import android.util.Log;
+import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+
+import com.github.mikephil.charting.charts.LineChart;
+import com.github.mikephil.charting.components.XAxis;
+import com.github.mikephil.charting.data.Entry;
+import com.github.mikephil.charting.data.LineData;
+import com.github.mikephil.charting.data.LineDataSet;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class GraphActivity extends AppCompatActivity implements BleService.DataListener {
+    private static final int REQUEST_BLUETOOTH_PERMISSION = 1;
+    private LineChart chart;
+    private BleService bleService;
+
+    private List<Entry> xEntries = new ArrayList<>();
+    private List<Entry> yEntries = new ArrayList<>();
+    private List<Entry> zEntries = new ArrayList<>();
+    private float timeIndex = 0;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        chart = findViewById(R.id.chart);
+        setupChart();
+
+        bleService = new BleService();
+        bleService.setDataListener(this);
+
+        if (checkPermissions()) {
+            startBle();
+        }
+    }
+
+    private boolean checkPermissions() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED ||
+                ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+
+            ActivityCompat.requestPermissions(this,
+                    new String[]{
+                            Manifest.permission.BLUETOOTH_SCAN,
+                            Manifest.permission.BLUETOOTH_CONNECT
+                    },
+                    REQUEST_BLUETOOTH_PERMISSION);
+            return false;
+        }
+        return true;
+    }
+
+    private void setupChart() {
+        LineDataSet xDataSet = new LineDataSet(xEntries, "X");
+        xDataSet.setColor(0xFFFF0000); // Красный
+        xDataSet.setDrawCircles(false);
+
+        LineDataSet yDataSet = new LineDataSet(yEntries, "Y");
+        yDataSet.setColor(0xFF00FF00); // Зеленый
+        yDataSet.setDrawCircles(false);
+
+        LineDataSet zDataSet = new LineDataSet(zEntries, "Z");
+        zDataSet.setColor(0xFF0000FF); // Синий
+        zDataSet.setDrawCircles(false);
+
+        LineData data = new LineData(xDataSet, yDataSet, zDataSet);
+        chart.setData(data);
+        chart.getXAxis().setPosition(XAxis.XAxisPosition.BOTTOM);
+        chart.getDescription().setEnabled(false);
+        chart.invalidate();
+    }
+
+    private void startBle() {
+        BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled()) {
+            Toast.makeText(this, "Пожалуйста, включите Bluetooth", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        bleService.startScan();
+    }
+
+
+    public void onCoordinatesReceived(float x, float y, float z) {
+        runOnUiThread(() -> {
+            // Добавляем новые точки данных
+            xEntries.add(new Entry(timeIndex, x));
+            yEntries.add(new Entry(timeIndex, y));
+            zEntries.add(new Entry(timeIndex, z));
+            timeIndex += 0.1f;
+
+            // Ограничиваем количество точек на графике
+            if (xEntries.size() > 100) {
+                xEntries.remove(0);
+                yEntries.remove(0);
+                zEntries.remove(0);
+            }
+
+            // Обновляем график
+            chart.getData().notifyDataChanged();
+            chart.notifyDataSetChanged();
+            chart.invalidate();
+        });
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_BLUETOOTH_PERMISSION) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                startBle();
+            } else {
+                Toast.makeText(this, "Для работы приложения необходимы разрешения Bluetooth", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        bleService.disconnect();
+    }
+}
+
 /* package com.example.a3aaaa;
 
 import android.os.Bundle;
@@ -108,6 +244,8 @@ public class GraphActivity extends AppCompatActivity {
 }
 
  */
+
+
 
 
 

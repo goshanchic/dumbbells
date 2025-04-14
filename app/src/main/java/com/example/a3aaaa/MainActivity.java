@@ -1,149 +1,82 @@
 package com.example.a3aaaa;
 
 import android.Manifest;
-import android.bluetooth.*;
-import android.bluetooth.le.*;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCallback;
+import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattDescriptor;
+import android.bluetooth.BluetoothGattService;
+import android.bluetooth.BluetoothProfile;
+import android.bluetooth.le.BluetoothLeScanner;
+import android.bluetooth.le.ScanCallback;
+import android.bluetooth.le.ScanFilter;
+import android.bluetooth.le.ScanResult;
+import android.bluetooth.le.ScanSettings;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.os.Handler;
 import android.util.Log;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.components.XAxis;
 import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
 import com.github.mikephil.charting.data.LineDataSet;
-import java.nio.charset.Charset;
-import java.util.*;
+
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
+    private static final int REQUEST_BLUETOOTH_PERMISSIONS = 1;
+    private static final String TAG = "BLE_APP";
+
     private LineChart chart;
     private TextView feedbackText;
     private LinearLayout feedbackCard;
-
-    private Handler dataHandler, checkHandler;
-    private Runnable dataRunnable, checkRunnable;
-
     private BluetoothAdapter bluetoothAdapter;
     private BluetoothLeScanner bleScanner;
-    private BluetoothGatt bluetoothGatt;
+    private BleService bleService;
 
-    private final UUID SERVICE_UUID = UUID.fromString("12345678-1234-1234-1234-1234567890ab");
-    private final UUID CHARACTERISTIC_UUID = UUID.fromString("abcd1234-ab12-cd34-ef56-1234567890ab");
+    private final UUID SERVICE_UUID = UUID.fromString("4FAFC201-1FB5-459E-8FCC-C5C9C331914B");
+    private final UUID CHARACTERISTIC_UUID = UUID.fromString("BEB5483E-36E1-4688-B7F5-EA07361B26A8");
 
-    private List<Entry> entriesX = new ArrayList<>();
-    private List<Entry> entriesY = new ArrayList<>();
-    private List<Entry> entriesZ = new ArrayList<>();
-
-    private LineDataSet dataSetX, dataSetY, dataSetZ;
-    private LineData lineData;
-    private float timeIndex = 0f;
-
-    private float lastX = 0, lastY = 0, lastZ = 0;
-
-    private static final int PERMISSION_REQUEST_CODE = 100;
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-
-        chart = findViewById(R.id.chart);
-        feedbackText = findViewById(R.id.feedbackText);
-        feedbackCard = findViewById(R.id.feedbackCard);
-
-        bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        bleScanner = bluetoothAdapter.getBluetoothLeScanner();
-
-        setupChart();
-
-        if (checkBluetoothPermissions()) {
-            startBLEScan();
-        }
-
-        dataHandler = new Handler();
-        dataRunnable = new Runnable() {
-            @Override
-            public void run() {
-                dataHandler.postDelayed(this, 100); // 100ms
-            }
-        };
-        dataHandler.post(dataRunnable);
-
-        checkHandler = new Handler();
-        checkRunnable = new Runnable() {
-            @Override
-            public void run() {
-                validateExercise();
-                checkHandler.postDelayed(this, 10000); // 10s
-            }
-        };
-        checkHandler.post(checkRunnable);
-    }
-
-    private boolean checkBluetoothPermissions() {
-        // Проверяем разрешения для использования Bluetooth
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED ||
-                ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED ||
-                ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_ADMIN) != PackageManager.PERMISSION_GRANTED ||
-                ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-
-            // Запрашиваем разрешения
-            ActivityCompat.requestPermissions(this,
-                    new String[]{
-                            Manifest.permission.BLUETOOTH_SCAN,
-                            Manifest.permission.BLUETOOTH_CONNECT,
-                            Manifest.permission.BLUETOOTH_ADMIN,
-                            Manifest.permission.ACCESS_FINE_LOCATION
-                    },
-                    PERMISSION_REQUEST_CODE);
-            return false;
-        }
-        return true;
-    }
-
-    private void setupChart() {
-        dataSetX = new LineDataSet(entriesX, "X");
-        dataSetX.setColor(android.graphics.Color.RED);
-        dataSetX.setDrawCircles(false);
-
-        dataSetY = new LineDataSet(entriesY, "Y");
-        dataSetY.setColor(android.graphics.Color.GREEN);
-        dataSetY.setDrawCircles(false);
-
-        dataSetZ = new LineDataSet(entriesZ, "Z");
-        dataSetZ.setColor(android.graphics.Color.BLUE);
-        dataSetZ.setDrawCircles(false);
-
-        lineData = new LineData(dataSetX, dataSetY, dataSetZ);
-        chart.setData(lineData);
-        chart.getXAxis().setPosition(XAxis.XAxisPosition.BOTTOM);
-        chart.getAxisRight().setEnabled(false);
-        chart.getAxisLeft().setAxisMinimum(0f);
-        chart.getAxisLeft().setAxisMaximum(1024f);
-    }
-
-    private void startBLEScan() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.BLUETOOTH_SCAN}, 1);
-            return;
-        }
-
-        ScanFilter filter = new ScanFilter.Builder().setDeviceName("ESP32C3_SENSOR").build();
-        ScanSettings settings = new ScanSettings.Builder().build();
-        bleScanner.startScan(Collections.singletonList(filter), settings, scanCallback);
-    }
+    private final List<Entry> xEntries = new ArrayList<>();
+    private final List<Entry> yEntries = new ArrayList<>();
+    private final List<Entry> zEntries = new ArrayList<>();
+    private float timeIndex = 0;
+    private float lastX, lastY, lastZ;
 
     private final ScanCallback scanCallback = new ScanCallback() {
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
-            if (result != null && result.getDevice() != null) {
-                result.getDevice().connectGatt(MainActivity.this, false, gattCallback);
-                bleScanner.stopScan(this);
+            super.onScanResult(callbackType, result);
+            BluetoothDevice device = result.getDevice();
+            if (device == null) return;
+
+            try {
+                if (ActivityCompat.checkSelfPermission(MainActivity.this,
+                        Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
+
+                    String deviceName = device.getName();
+                    if (deviceName != null && deviceName.contains("ESP32")) {
+                        bleScanner.stopScan(this);
+                        bleService.connect(MainActivity.this, device);
+                    }
+                }
+            } catch (SecurityException e) {
+                Log.e(TAG, "SecurityException: " + e.getMessage());
             }
         }
     };
@@ -152,99 +85,219 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
             if (newState == BluetoothProfile.STATE_CONNECTED) {
-                gatt.discoverServices();
-                bluetoothGatt = gatt;
+                if (ActivityCompat.checkSelfPermission(MainActivity.this,
+                        Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
+                    gatt.discoverServices();
+                } else {
+                    runOnUiThread(() ->
+                            Toast.makeText(MainActivity.this,
+                                    "Необходимо разрешение BLUETOOTH_CONNECT",
+                                    Toast.LENGTH_SHORT).show());
+                }
             }
         }
 
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
-            BluetoothGattService service = gatt.getService(SERVICE_UUID);
-            BluetoothGattCharacteristic characteristic = service.getCharacteristic(CHARACTERISTIC_UUID);
-            gatt.setCharacteristicNotification(characteristic, true);
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                BluetoothGattService service = gatt.getService(SERVICE_UUID);
+                if (service == null) {
+                    Log.w(TAG, "Сервис не найден");
+                    return;
+                }
 
-            BluetoothGattDescriptor descriptor = characteristic.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"));
-            descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-            gatt.writeDescriptor(descriptor);
+                BluetoothGattCharacteristic characteristic = service.getCharacteristic(CHARACTERISTIC_UUID);
+                if (characteristic == null) {
+                    Log.w(TAG, "Характеристика не найдена");
+                    return;
+                }
+
+                try {
+                    gatt.setCharacteristicNotification(characteristic, true);
+                    BluetoothGattDescriptor descriptor = characteristic.getDescriptor(
+                            UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
+                    );
+                    if (descriptor != null) {
+                        descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+                        gatt.writeDescriptor(descriptor);
+                    }
+                } catch (SecurityException e) {
+                    Log.e(TAG, "SecurityException: " + e.getMessage());
+                }
+            }
         }
 
         @Override
-        public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
-            String rawValue = new String(characteristic.getValue(), Charset.forName("UTF-8"));
-            if (rawValue != null) {
-                handleIncomingData(rawValue);
-            }
+        public void onCharacteristicChanged(BluetoothGatt gatt,
+                                            BluetoothGattCharacteristic characteristic) {
+            parseData(characteristic.getValue());
         }
     };
 
-    private void handleIncomingData(String data) {
-        Map<String, Float> map = new HashMap<>();
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        initViews();
+        checkBluetoothSupport();
+        setupChart();
+        checkPermissions();
+    }
+
+    private void initViews() {
+        chart = findViewById(R.id.chart);
+        feedbackText = findViewById(R.id.feedbackText);
+        feedbackCard = findViewById(R.id.feedbackCard);
+    }
+
+    private void checkBluetoothSupport() {
+        bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        if (bluetoothAdapter == null) {
+            Toast.makeText(this, "Устройство не поддерживает Bluetooth", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+
+        if (!bluetoothAdapter.isEnabled()) {
+            Toast.makeText(this, "Включите Bluetooth", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+
+        bleScanner = bluetoothAdapter.getBluetoothLeScanner();
+        bleService = new BleService();
+        bleService.setGattCallback(gattCallback);
+    }
+
+    private void setupChart() {
+        LineDataSet xDataSet = new LineDataSet(xEntries, "X");
+        xDataSet.setColor(0xFFFF0000);
+        xDataSet.setDrawCircles(false);
+
+        LineDataSet yDataSet = new LineDataSet(yEntries, "Y");
+        yDataSet.setColor(0xFF00FF00);
+        yDataSet.setDrawCircles(false);
+
+        LineDataSet zDataSet = new LineDataSet(zEntries, "Z");
+        zDataSet.setColor(0xFF0000FF);
+        zDataSet.setDrawCircles(false);
+
+        LineData data = new LineData(xDataSet, yDataSet, zDataSet);
+        chart.setData(data);
+        chart.getXAxis().setPosition(XAxis.XAxisPosition.BOTTOM);
+        chart.getDescription().setEnabled(false);
+        chart.invalidate();
+    }
+
+    private boolean checkPermissions() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+
+            ActivityCompat.requestPermissions(this,
+                    new String[]{
+                            Manifest.permission.BLUETOOTH_SCAN,
+                            Manifest.permission.BLUETOOTH_CONNECT
+                    },
+                    REQUEST_BLUETOOTH_PERMISSIONS);
+            return false;
+        }
+        return true;
+    }
+
+    private void startBleScan() {
+        if (!checkPermissions()) return;
+
+        ScanSettings settings = new ScanSettings.Builder()
+                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                .build();
+
+        List<ScanFilter> filters = new ArrayList<>();
+        filters.add(new ScanFilter.Builder().build());
+
         try {
-            // Обрабатываем данные, разделяя их по запятой
-            for (String entry : data.split(",")) {
-                String[] parts = entry.split(":");
-                if (parts.length == 2) {
-                    map.put(parts[0], Float.parseFloat(parts[1]));
-                } else {
-                    throw new IllegalArgumentException("Invalid data format: " + entry);
-                }
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN)
+                    == PackageManager.PERMISSION_GRANTED) {
+                bleScanner.startScan(filters, settings, scanCallback);
             }
-
-            // Обновляем график
-            runOnUiThread(() -> {
-                Float x = map.get("X");
-                Float y = map.get("Y");
-                Float z = map.get("Z");
-
-                if (x != null) {
-                    entriesX.add(new Entry(timeIndex, x));
-                    lastX = x;
-                }
-                if (y != null) {
-                    entriesY.add(new Entry(timeIndex, y));
-                    lastY = y;
-                }
-                if (z != null) {
-                    entriesZ.add(new Entry(timeIndex, z));
-                    lastZ = z;
-                }
-
-                timeIndex += 0.1f;
-
-                lineData.notifyDataChanged();
-                chart.notifyDataSetChanged();
-                chart.invalidate();
-            });
-        } catch (NumberFormatException e) {
-            // Логируем ошибку при парсинге числа
-            Log.e("MainActivity", "Invalid number format in incoming data: " + data, e);
-        } catch (IllegalArgumentException e) {
-            // Логируем ошибку, если формат данных неверный
-            Log.e("MainActivity", "Error parsing incoming data: " + e.getMessage(), e);
-        } catch (Exception e) {
-            // Логируем другие исключения
-            Log.e("MainActivity", "Unexpected error processing incoming data", e);
+        } catch (SecurityException e) {
+            Log.e(TAG, "SecurityException: " + e.getMessage());
         }
     }
 
-    private void validateExercise() {
-        float threshold = 1.0f;
-        boolean isCorrect = Math.abs(lastX) < threshold && Math.abs(lastY) < threshold && Math.abs(lastZ) < threshold;
+    private void parseData(byte[] data) {
+        runOnUiThread(() -> {
+            try {
+                String[] values = new String(data, StandardCharsets.UTF_8).trim().split(",");
+                if (values.length < 3) {
+                    Log.w(TAG, "Недостаточно данных: " + values.length);
+                    return;
+                }
 
-        if (isCorrect) {
-            feedbackCard.setBackgroundColor(getResources().getColor(android.R.color.holo_green_light));
-            feedbackText.setText("✅ Правильно");
-        } else {
-            feedbackCard.setBackgroundColor(getResources().getColor(android.R.color.holo_red_light));
-            feedbackText.setText("❌ Неправильно");
+                lastX = Float.parseFloat(values[0]);
+                lastY = Float.parseFloat(values[1]);
+                lastZ = Float.parseFloat(values[2]);
+
+                updateChart();
+                giveFeedback();
+            } catch (Exception e) {
+                Log.e(TAG, "Ошибка парсинга данных: " + e.getMessage());
+            }
+        });
+    }
+
+    private void updateChart() {
+        xEntries.add(new Entry(timeIndex, lastX));
+        yEntries.add(new Entry(timeIndex, lastY));
+        zEntries.add(new Entry(timeIndex, lastZ));
+        timeIndex += 0.1f;
+
+        if (xEntries.size() > 100) {
+            xEntries.remove(0);
+            yEntries.remove(0);
+            zEntries.remove(0);
+        }
+
+        chart.getData().notifyDataChanged();
+        chart.notifyDataSetChanged();
+        chart.invalidate();
+    }
+
+    private void giveFeedback() {
+        float threshold = 1.0f;
+        boolean isCorrect = Math.abs(lastX) < threshold &&
+                Math.abs(lastY) < threshold &&
+                Math.abs(lastZ) < threshold;
+
+        feedbackCard.setBackgroundColor(getResources().getColor(
+                isCorrect ? android.R.color.holo_green_light : android.R.color.holo_red_light
+        ));
+        feedbackText.setText(isCorrect ? "✅ Правильно" : "❌ Неправильно");
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_BLUETOOTH_PERMISSIONS) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                startBleScan();
+            } else {
+                Toast.makeText(this, "Необходимы разрешения для работы BLE", Toast.LENGTH_SHORT).show();
+            }
         }
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        dataHandler.removeCallbacks(dataRunnable);
-        checkHandler.removeCallbacks(checkRunnable);
+        try {
+            if (bleScanner != null) {
+                bleScanner.stopScan(scanCallback);
+            }
+            bleService.disconnect();
+        } catch (SecurityException e) {
+            Log.e(TAG, "SecurityException: " + e.getMessage());
+        }
     }
 }
 

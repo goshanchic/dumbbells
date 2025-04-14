@@ -1,3 +1,133 @@
+/*package com.example.a3aaaa;
+
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.content.pm.PackageManager;
+import android.os.Bundle;
+import android.widget.Toast;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+
+import com.github.mikephil.charting.charts.LineChart;
+import com.github.mikephil.charting.components.Legend;
+import com.github.mikephil.charting.data.Entry;
+import com.github.mikephil.charting.data.LineData;
+import com.github.mikephil.charting.data.LineDataSet;
+
+import java.util.Set;
+
+public class GraphActivity extends AppCompatActivity {
+
+    private static final BluetoothDevice TODO =  ;
+    private LineChart lineChart;
+    private LineDataSet xDataSet, yDataSet, zDataSet;
+    private BluetoothService bluetoothService;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        // Инициализация графика
+        lineChart = findViewById(R.id.lineChart);
+        setupChart();
+
+        // Bluetooth подключение
+        bluetoothService = new BluetoothService();
+        BluetoothDevice device = findPairedDevice("SmartDumbbell"); // имя твоего ESP32
+
+        if (device != null && bluetoothService.connectToDevice(device)) {
+            startBluetoothListener();
+        } else {
+            Toast.makeText(this, "Не удалось подключиться к ESP32", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void setupChart() {
+        xDataSet = new LineDataSet(null, "X");
+        yDataSet = new LineDataSet(null, "Y");
+        zDataSet = new LineDataSet(null, "Z");
+
+        xDataSet.setColor(getResources().getColor(R.color.teal_700));
+        yDataSet.setColor(getResources().getColor(R.color.purple_700));
+        zDataSet.setColor(getResources().getColor(R.color.black));
+
+        LineData data = new LineData();
+        data.addDataSet(xDataSet);
+        data.addDataSet(yDataSet);
+        data.addDataSet(zDataSet);
+
+        lineChart.setData(data);
+        lineChart.getDescription().setText("Smart Dumbbell Graph");
+        lineChart.getLegend().setForm(Legend.LegendForm.LINE);
+        lineChart.invalidate();
+    }
+
+    private void startBluetoothListener() {
+        new Thread(() -> {
+            while (true) {
+                String data = bluetoothService.readData();
+                if (!data.isEmpty()) {
+                    runOnUiThread(() -> updateChart(data));
+                }
+            }
+        }).start();
+    }
+
+    private void updateChart(String data) {
+        try {
+            String[] values = data.trim().split(",");
+            if (values.length == 3) {
+                float x = Float.parseFloat(values[0]);
+                float y = Float.parseFloat(values[1]);
+                float z = Float.parseFloat(values[2]);
+
+                addEntry(xDataSet, x);
+                addEntry(yDataSet, y);
+                addEntry(zDataSet, z);
+
+                lineChart.getData().notifyDataChanged();
+                lineChart.notifyDataSetChanged();
+                lineChart.invalidate();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void addEntry(LineDataSet dataSet, float value) {
+        LineData data = lineChart.getData();
+        if (data != null) {
+            data.addEntry(new Entry(dataSet.getEntryCount(), value), data.getIndexOfDataSet(dataSet));
+        }
+    }
+
+    private BluetoothDevice findPairedDevice(String deviceName) {
+        BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        if (bluetoothAdapter != null) {
+            if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                // TODO: Consider calling
+                //    ActivityCompat#requestPermissions
+                // here to request the missing permissions, and then overriding
+                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                //                                          int[] grantResults)
+                // to handle the case where the user grants the permission. See the documentation
+                // for ActivityCompat#requestPermissions for more details.
+                return TODO;
+            }
+            Set<BluetoothDevice> pairedDevices = bluetoothAdapter.getBondedDevices();
+            for (BluetoothDevice device : pairedDevices) {
+                if (device.getName().equals(deviceName)) {
+                    return device;
+                }
+            }
+        }
+        return null;
+    }
+}
+
+ */
 
 
 
