@@ -1,305 +1,277 @@
 package com.example.a3aaaa;
 
-import android.Manifest;
-import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothGatt;
-import android.bluetooth.BluetoothGattCallback;
-import android.bluetooth.BluetoothGattCharacteristic;
-import android.bluetooth.BluetoothGattDescriptor;
-import android.bluetooth.BluetoothGattService;
-import android.bluetooth.BluetoothProfile;
-import android.bluetooth.le.BluetoothLeScanner;
-import android.bluetooth.le.ScanCallback;
-import android.bluetooth.le.ScanFilter;
-import android.bluetooth.le.ScanResult;
-import android.bluetooth.le.ScanSettings;
-import android.content.pm.PackageManager;
+import android.content.Context;
+import android.graphics.Color;
 import android.os.Bundle;
-import android.util.Log;
-import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.widget.Toast;
-
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-
 import com.github.mikephil.charting.charts.LineChart;
-import com.github.mikephil.charting.components.XAxis;
+import com.github.mikephil.charting.components.*;
 import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
 import com.github.mikephil.charting.data.LineDataSet;
-
-import java.nio.charset.StandardCharsets;
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
-    private static final int REQUEST_BLUETOOTH_PERMISSIONS = 1;
-    private static final String TAG = "BLE_APP";
 
     private LineChart chart;
     private TextView feedbackText;
-    private LinearLayout feedbackCard;
-    private BluetoothAdapter bluetoothAdapter;
-    private BluetoothLeScanner bleScanner;
-    private BleService bleService;
-
-    private final UUID SERVICE_UUID = UUID.fromString("4FAFC201-1FB5-459E-8FCC-C5C9C331914B");
-    private final UUID CHARACTERISTIC_UUID = UUID.fromString("BEB5483E-36E1-4688-B7F5-EA07361B26A8");
-
-    private final List<Entry> xEntries = new ArrayList<>();
-    private final List<Entry> yEntries = new ArrayList<>();
-    private final List<Entry> zEntries = new ArrayList<>();
-    private float timeIndex = 0;
-    private float lastX, lastY, lastZ;
-
-    private final ScanCallback scanCallback = new ScanCallback() {
-        @Override
-        public void onScanResult(int callbackType, ScanResult result) {
-            super.onScanResult(callbackType, result);
-            BluetoothDevice device = result.getDevice();
-            if (device == null) return;
-
-            try {
-                if (ActivityCompat.checkSelfPermission(MainActivity.this,
-                        Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
-
-                    String deviceName = device.getName();
-                    if (deviceName != null && deviceName.contains("ESP32")) {
-                        bleScanner.stopScan(this);
-                        bleService.connect(MainActivity.this, device);
-                    }
-                }
-            } catch (SecurityException e) {
-                Log.e(TAG, "SecurityException: " + e.getMessage());
-            }
-        }
-    };
-
-    private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
-        @Override
-        public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
-            if (newState == BluetoothProfile.STATE_CONNECTED) {
-                if (ActivityCompat.checkSelfPermission(MainActivity.this,
-                        Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
-                    gatt.discoverServices();
-                } else {
-                    runOnUiThread(() ->
-                            Toast.makeText(MainActivity.this,
-                                    "Необходимо разрешение BLUETOOTH_CONNECT",
-                                    Toast.LENGTH_SHORT).show());
-                }
-            }
-        }
-
-        @Override
-        public void onServicesDiscovered(BluetoothGatt gatt, int status) {
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-                BluetoothGattService service = gatt.getService(SERVICE_UUID);
-                if (service == null) {
-                    Log.w(TAG, "Сервис не найден");
-                    return;
-                }
-
-                BluetoothGattCharacteristic characteristic = service.getCharacteristic(CHARACTERISTIC_UUID);
-                if (characteristic == null) {
-                    Log.w(TAG, "Характеристика не найдена");
-                    return;
-                }
-
-                try {
-                    gatt.setCharacteristicNotification(characteristic, true);
-                    BluetoothGattDescriptor descriptor = characteristic.getDescriptor(
-                            UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
-                    );
-                    if (descriptor != null) {
-                        descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-                        gatt.writeDescriptor(descriptor);
-                    }
-                } catch (SecurityException e) {
-                    Log.e(TAG, "SecurityException: " + e.getMessage());
-                }
-            }
-        }
-
-        @Override
-        public void onCharacteristicChanged(BluetoothGatt gatt,
-                                            BluetoothGattCharacteristic characteristic) {
-            parseData(characteristic.getValue());
-        }
-    };
+    private final List<Entry> entriesX = new ArrayList<>();
+    private final List<Entry> entriesY = new ArrayList<>();
+    private final List<Entry> entriesZ = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        initViews();
-        checkBluetoothSupport();
-        setupChart();
-        checkPermissions();
-    }
-
-    private void initViews() {
         chart = findViewById(R.id.chart);
         feedbackText = findViewById(R.id.feedbackText);
-        feedbackCard = findViewById(R.id.feedbackCard);
+
+        readDataFromFile();
+        setupChart();
+        analyzeMovement();
     }
 
-    private void checkBluetoothSupport() {
-        bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        if (bluetoothAdapter == null) {
-            Toast.makeText(this, "Устройство не поддерживает Bluetooth", Toast.LENGTH_SHORT).show();
-            finish();
-            return;
-        }
+    private void readDataFromFile() {
+        try {
+            InputStream is = getAssets().open("dumbbell_data.txt");
+            BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+            String line;
+            boolean isFirstLine = true;
 
-        if (!bluetoothAdapter.isEnabled()) {
-            Toast.makeText(this, "Включите Bluetooth", Toast.LENGTH_SHORT).show();
-            finish();
-            return;
-        }
+            while ((line = reader.readLine()) != null) {
+                if (isFirstLine) { // пропускаем заголовок
+                    isFirstLine = false;
+                    continue;
+                }
+                String[] parts = line.split(",");
+                if (parts.length == 4) {
+                    float time = Float.parseFloat(parts[0]);
+                    float x = Float.parseFloat(parts[1]);
+                    float y = Float.parseFloat(parts[2]);
+                    float z = Float.parseFloat(parts[3]);
 
-        bleScanner = bluetoothAdapter.getBluetoothLeScanner();
-        bleService = new BleService();
-        bleService.setGattCallback(gattCallback);
+                    entriesX.add(new Entry(time, x));
+                    entriesY.add(new Entry(time, y));
+                    entriesZ.add(new Entry(time, z));
+                }
+            }
+            reader.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private void setupChart() {
-        LineDataSet xDataSet = new LineDataSet(xEntries, "X");
-        xDataSet.setColor(0xFFFF0000);
-        xDataSet.setDrawCircles(false);
+        XAxis xAxis = chart.getXAxis();
+        xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
+        xAxis.setGranularity(1f);
 
-        LineDataSet yDataSet = new LineDataSet(yEntries, "Y");
-        yDataSet.setColor(0xFF00FF00);
-        yDataSet.setDrawCircles(false);
+        YAxis leftAxis = chart.getAxisLeft();
+        leftAxis.setAxisMinimum(0f);
+        leftAxis.setAxisMaximum(10f);
 
-        LineDataSet zDataSet = new LineDataSet(zEntries, "Z");
-        zDataSet.setColor(0xFF0000FF);
-        zDataSet.setDrawCircles(false);
+        chart.getAxisRight().setEnabled(false);
 
-        LineData data = new LineData(xDataSet, yDataSet, zDataSet);
+        LineDataSet setX = new LineDataSet(entriesX, "Горизонталь (X)");
+        setX.setColor(Color.RED);
+        setX.setLineWidth(1f);
+
+        LineDataSet setY = new LineDataSet(entriesY, "Вертикаль (Y)");
+        setY.setColor(Color.GREEN);
+        setY.setLineWidth(1f);
+
+        LineDataSet setZ = new LineDataSet(entriesZ, "Ускорение (Z)");
+        setZ.setColor(Color.BLUE);
+        setZ.setLineWidth(1f);
+
+        LineData data = new LineData(setX, setY, setZ);
         chart.setData(data);
-        chart.getXAxis().setPosition(XAxis.XAxisPosition.BOTTOM);
-        chart.getDescription().setEnabled(false);
         chart.invalidate();
+        chart.animateXY(1500, 1500);
     }
 
-    private boolean checkPermissions() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED ||
-                ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+    private void analyzeMovement() {
+        float[] ideal = {0.15f, 0.08f, 9.8f};
+        float threshold = 0.1f;
+        int correctPoints = 0;
 
-            ActivityCompat.requestPermissions(this,
-                    new String[]{
-                            Manifest.permission.BLUETOOTH_SCAN,
-                            Manifest.permission.BLUETOOTH_CONNECT
-                    },
-                    REQUEST_BLUETOOTH_PERMISSIONS);
-            return false;
-        }
-        return true;
-    }
-
-    private void startBleScan() {
-        if (!checkPermissions()) return;
-
-        ScanSettings settings = new ScanSettings.Builder()
-                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-                .build();
-
-        List<ScanFilter> filters = new ArrayList<>();
-        filters.add(new ScanFilter.Builder().build());
-
-        try {
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN)
-                    == PackageManager.PERMISSION_GRANTED) {
-                bleScanner.startScan(filters, settings, scanCallback);
+        for (int i = 0; i < entriesX.size(); i++) {
+            if (Math.abs(entriesX.get(i).getY() - ideal[0]) < threshold &&
+                    Math.abs(entriesY.get(i).getY() - ideal[1]) < threshold &&
+                    Math.abs(entriesZ.get(i).getY() - ideal[2]) < threshold) {
+                correctPoints++;
             }
-        } catch (SecurityException e) {
-            Log.e(TAG, "SecurityException: " + e.getMessage());
         }
+
+        int accuracy = (int) ((float) correctPoints / entriesX.size() * 100);
+        feedbackText.setText(accuracy > 80 ? "✅ Правильно (" + accuracy + "%)" : "❌ Ошибка (" + accuracy + "%)");
+        feedbackText.setTextColor(accuracy > 80 ? Color.GREEN : Color.RED);
+    }
+}
+
+/*package com.example.a3aaaa;
+
+import android.Manifest;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.le.BluetoothLeScanner;
+import android.bluetooth.le.ScanCallback;
+import android.bluetooth.le.ScanResult;
+import android.bluetooth.le.ScanSettings;
+import android.content.pm.PackageManager;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Handler;
+import android.util.Log;
+import android.widget.Toast;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
+public class MainActivity extends AppCompatActivity {
+    private static final int REQUEST_BLUETOOTH_SCAN_PERMISSION = 101;
+    private BluetoothAdapter bluetoothAdapter;
+    private BluetoothLeScanner bleScanner;
+    private Handler handler = new Handler();
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        // Инициализация Bluetooth
+        bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        if (bluetoothAdapter == null) {
+            showToast("Bluetooth не поддерживается на этом устройстве");
+            finish();
+            return;
+        }
+
+        // Проверка и запрос разрешений
+        checkBluetoothPermissions();
     }
 
-    private void parseData(byte[] data) {
-        runOnUiThread(() -> {
-            try {
-                String[] values = new String(data, StandardCharsets.UTF_8).trim().split(",");
-                if (values.length < 3) {
-                    Log.w(TAG, "Недостаточно данных: " + values.length);
-                    return;
+    private void checkBluetoothPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN)
+                    != PackageManager.PERMISSION_GRANTED) {
+
+                if (ActivityCompat.shouldShowRequestPermissionRationale(this,
+                        Manifest.permission.BLUETOOTH_SCAN)) {
+
+                    showPermissionExplanationDialog();
+                } else {
+                    requestBluetoothPermissions();
                 }
-
-                lastX = Float.parseFloat(values[0]);
-                lastY = Float.parseFloat(values[1]);
-                lastZ = Float.parseFloat(values[2]);
-
-                updateChart();
-                giveFeedback();
-            } catch (Exception e) {
-                Log.e(TAG, "Ошибка парсинга данных: " + e.getMessage());
+            } else {
+                startBleScan();
             }
-        });
-    }
-
-    private void updateChart() {
-        xEntries.add(new Entry(timeIndex, lastX));
-        yEntries.add(new Entry(timeIndex, lastY));
-        zEntries.add(new Entry(timeIndex, lastZ));
-        timeIndex += 0.1f;
-
-        if (xEntries.size() > 100) {
-            xEntries.remove(0);
-            yEntries.remove(0);
-            zEntries.remove(0);
+        } else {
+            // Для Android < 12
+            startBleScan();
         }
-
-        chart.getData().notifyDataChanged();
-        chart.notifyDataSetChanged();
-        chart.invalidate();
     }
 
-    private void giveFeedback() {
-        float threshold = 1.0f;
-        boolean isCorrect = Math.abs(lastX) < threshold &&
-                Math.abs(lastY) < threshold &&
-                Math.abs(lastZ) < threshold;
+    private void showPermissionExplanationDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Необходимо разрешение")
+                .setMessage("Для сканирования BLE-устройств необходимо разрешение BLUETOOTH_SCAN")
+                .setPositiveButton("OK", (dialog, which) -> requestBluetoothPermissions())
+                .setNegativeButton("Отмена", null)
+                .show();
+    }
 
-        feedbackCard.setBackgroundColor(getResources().getColor(
-                isCorrect ? android.R.color.holo_green_light : android.R.color.holo_red_light
-        ));
-        feedbackText.setText(isCorrect ? "✅ Правильно" : "❌ Неправильно");
+    private void requestBluetoothPermissions() {
+        ActivityCompat.requestPermissions(this,
+                new String[]{Manifest.permission.BLUETOOTH_SCAN},
+                REQUEST_BLUETOOTH_SCAN_PERMISSION);
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode,
+                                           @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == REQUEST_BLUETOOTH_PERMISSIONS) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+
+        if (requestCode == REQUEST_BLUETOOTH_SCAN_PERMISSION) {
+            if (grantResults.length > 0 &&
+                    grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 startBleScan();
             } else {
-                Toast.makeText(this, "Необходимы разрешения для работы BLE", Toast.LENGTH_SHORT).show();
+                showToast("Без разрешения сканирование BLE невозможно");
             }
         }
+    }
+
+    private void startBleScan() {
+        try {
+            bleScanner = bluetoothAdapter.getBluetoothLeScanner();
+            ScanSettings settings = new ScanSettings.Builder()
+                    .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                    .build();
+
+            bleScanner.startScan(null, settings, scanCallback);
+            showToast("Сканирование BLE начато");
+
+            // Остановка сканирования через 10 секунд
+            handler.postDelayed(this::stopBleScan, 10000);
+        } catch (SecurityException e) {
+            Log.e("BLE", "Ошибка разрешения", e);
+            showToast("Ошибка: нет необходимых разрешений");
+        }
+    }
+
+    private final ScanCallback scanCallback = new ScanCallback() {
+        @Override
+        public void onScanResult(int callbackType, ScanResult result) {
+            super.onScanResult(callbackType, result);
+            if (result != null && result.getDevice() != null) {
+                String deviceInfo = "Найдено устройство: " + result.getDevice().getName() +
+                        "\nMAC: " + result.getDevice().getAddress();
+                Log.d("BLE", deviceInfo);
+                showToast(deviceInfo);
+            }
+        }
+
+        @Override
+        public void onScanFailed(int errorCode) {
+            super.onScanFailed(errorCode);
+            showToast("Ошибка сканирования: " + errorCode);
+        }
+    };
+
+    private void stopBleScan() {
+        if (bleScanner != null) {
+            try {
+                bleScanner.stopScan(scanCallback);
+                showToast("Сканирование BLE остановлено");
+            } catch (SecurityException e) {
+                Log.e("BLE", "Ошибка остановки сканирования", e);
+            }
+        }
+    }
+
+    private void showToast(String message) {
+        runOnUiThread(() -> Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show());
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        try {
-            if (bleScanner != null) {
-                bleScanner.stopScan(scanCallback);
-            }
-            bleService.disconnect();
-        } catch (SecurityException e) {
-            Log.e(TAG, "SecurityException: " + e.getMessage());
-        }
+        stopBleScan();
+        handler.removeCallbacksAndMessages(null);
     }
 }
+
+ */
+
 
 /*
 package com.example.a3aaaa;

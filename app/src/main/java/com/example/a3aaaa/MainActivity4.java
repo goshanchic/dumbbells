@@ -10,16 +10,15 @@ public class MainActivity4 extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main3); // Убедись, что используешь правильный layout
+        setContentView(R.layout.activity_main3);
 
-        Button startButton = findViewById(R.id.startButton); //  ID кнопки
+        Button startButton = findViewById(R.id.startButton);
         startButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // Переход к GraphActivity
                 Intent intent = new Intent(MainActivity4.this, MainActivity.class);
                 startActivity(intent);
             }
         });
-    }}
-
+    }
+}

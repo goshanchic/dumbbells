@@ -1,4 +1,4 @@
-package com.example.a3aaaa;
+/*package com.example.a3aaaa;
 
 public class ExerciseData {
     private long timestamp;
@@ -18,5 +18,7 @@ public class ExerciseData {
     public void setY(float y) { this.y = y; }
     public void setZ(float z) { this.z = z; }
 }
+
+ */
 
 
