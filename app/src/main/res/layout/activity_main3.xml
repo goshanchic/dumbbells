@@ -6,7 +6,9 @@
     android:gravity="center"
     android:padding="24dp">
 
+    <!-- Кнопка "Начать" -->
 
+    <!-- Пустышка 1 -->
     <Button
         android:id="@+id/startButton"
         android:layout_width="109dp"
@@ -17,13 +19,14 @@
         android:id="@+id/emptyButton1"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:enabled="false"
-        android:text="В разработке" />
+        android:text="Пустышка 1"
+        android:enabled="false"/>
 
+    <!-- Пустышка 2 -->
     <Button
         android:id="@+id/emptyButton2"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:enabled="false"
-        android:text="В разработке" />
+        android:text="Пустышка 2"
+        android:enabled="false"/>
 </LinearLayout>

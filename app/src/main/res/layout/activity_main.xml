@@ -1,47 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:padding="16dp"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="#FAFAFA"
-    tools:context=".MainActivity">
+    android:layout_height="match_parent">
 
-    <com.example.a3aaaa.GraphView
-        android:id="@+id/graphView"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_above="@+id/controlsLayout" />
+    <com.github.mikephil.charting.charts.LineChart
+        android:id="@+id/chart"
+        android:layout_width="386dp"
+        android:layout_height="496dp"
+        android:layout_marginBottom="16dp"
+        android:layout_weight="1" />
 
     <LinearLayout
-        android:id="@+id/controlsLayout"
+        android:id="@+id/feedbackCard"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:background="#FFFFFF"
-        android:elevation="8dp"
-        android:orientation="vertical"
-        android:padding="16dp">
+        android:padding="16dp"
+        android:background="@android:color/darker_gray"
+        android:orientation="horizontal"
+        android:gravity="center">
 
-        <Button
-            android:id="@+id/statusButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            android:elevation="4dp"
-            android:textColor="#FFFFFF"
-            android:textSize="16sp"
-            android:textStyle="bold" />
-
-        <Button
-            android:id="@+id/backButton"
+        <TextView
+            android:id="@+id/feedbackText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:backgroundTint="#607D8B"
-            android:text="Назад"
-            android:textColor="#FFFFFF" />
+            android:text="Ожидание данных..."
+            android:textSize="20sp"
+            android:textColor="@android:color/white" />
     </LinearLayout>
 
-</RelativeLayout>
+</LinearLayout>
+
+
 

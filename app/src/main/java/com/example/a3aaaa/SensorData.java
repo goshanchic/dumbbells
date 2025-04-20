@@ -1,33 +1,15 @@
-package com.example.a3aaaa;
+/*package com.example.a3aaaa;
 
-/* public class SensorData {
-    private String timestamp;
-    private int sensorId;
-    private float x;
-    private float y;
-    private float z;
+public class SensorData {
+    float x;
+    float y;
+    float z;
 
-    // Getters
-    public String getTimestamp() {
-        return timestamp;
-    }
-
-    public int getSensorId() {
-        return sensorId;
-    }
-
-    public float getX() {
-        return x;
-    }
-
-    public float getY() {
-        return y;
-    }
-
-    public float getZ() {
-        return z;
+    public SensorData(float x, float y, float z) {
+        this.x = x;
+        this.y = y;
+        this.z = z;
     }
 }
 
  */
-

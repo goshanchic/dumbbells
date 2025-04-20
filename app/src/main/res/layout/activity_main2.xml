@@ -11,14 +11,14 @@
         android:id="@+id/startButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Выбор упражнения" />
+        android:text="Начать" />
 
     <!-- Пустышка 1 -->
     <Button
         android:id="@+id/emptyButton1"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Настройки"
+        android:text="Пустышка 1"
         android:enabled="false"/>
 
     <!-- Пустышка 2 -->
@@ -26,8 +26,8 @@
         android:id="@+id/emptyButton2"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:enabled="false"
-        android:text="В разработке" />
+        android:text="Пустышка 2"
+        android:enabled="false"/>
 </LinearLayout>
 
     <!-- 1 И 2 СТРАНИЦА ПОКА ЧТО -->
