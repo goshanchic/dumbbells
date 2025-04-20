@@ -1,5 +1,235 @@
 package com.example.a3aaaa;
 
+import android.content.Context;
+import android.graphics.Color;
+import android.media.MediaPlayer;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
+import android.widget.Button;
+import android.widget.Toast;
+import androidx.appcompat.app.AppCompatActivity;
+import java.util.Random;
+
+public class MainActivity extends AppCompatActivity {
+
+    private GraphView graphView;
+    private Button statusButton;
+    private Handler handler = new Handler();
+    private boolean isCorrect = true;
+    private Random random = new Random();
+    private MediaPlayer correctSound, errorSound;
+    private int correctCount = 0;
+    private int errorCount = 0;
+    private long exerciseStartTime;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        // Инициализация UI элементов
+        graphView = findViewById(R.id.graphView);
+        statusButton = findViewById(R.id.statusButton);
+
+        // Инициализация звуковых эффектов
+        initializeSounds();
+
+        // Начало отсчета времени выполнения
+        exerciseStartTime = System.currentTimeMillis();
+        updateButtonStatus();
+
+        // Кнопка назад с показом статистики
+        Button backButton = findViewById(R.id.backButton);
+        backButton.setOnClickListener(v -> showStatisticsAndFinish());
+
+        // Запуск обновлений
+        startUpdates();
+    }
+
+    private void initializeSounds() {
+        try {
+            correctSound = MediaPlayer.create(this, R.raw.correct);
+            errorSound = MediaPlayer.create(this, R.raw.error);
+            correctSound.setVolume(0.7f, 0.7f);
+            errorSound.setVolume(0.7f, 0.7f);
+        } catch (Exception e) {
+            Toast.makeText(this, "Error loading sound files", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void startUpdates() {
+        // Обновление графика каждые 500 мс
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                graphView.updateData();
+                handler.postDelayed(this, 500);
+            }
+        }, 500);
+
+        // Проверка статуса выполнения с динамическими интервалами
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                updateExerciseStatus();
+                int delay = getDynamicDelay();
+                handler.postDelayed(this, delay);
+            }
+        }, 2000);
+    }
+
+    private void updateExerciseStatus() {
+        // Вероятность правильного выполнения уменьшается со временем
+        float timeFactor = getTimeFactor();
+        float correctProbability = 0.7f - (timeFactor * 0.3f);
+
+        if(random.nextFloat() < correctProbability) {
+            isCorrect = true;
+            correctCount++;
+        } else {
+            isCorrect = false;
+            errorCount++;
+        }
+
+        updateButtonStatus();
+        provideFeedback();
+    }
+
+    private float getTimeFactor() {
+        long duration = System.currentTimeMillis() - exerciseStartTime;
+        return Math.min(1, duration / (30 * 60 * 1000f)); // Нормализация к 30 минутам
+    }
+
+    private int getDynamicDelay() {
+        // Более частые проверки при ошибках
+        return isCorrect ? 3000 + random.nextInt(4000) : 1000 + random.nextInt(2000);
+    }
+
+    private void updateButtonStatus() {
+        runOnUiThread(() -> {
+            if (isCorrect) {
+                statusButton.setText("✓ Правильно (" + correctCount + ")");
+                statusButton.setBackgroundColor(Color.parseColor("#4CAF50")); // Зеленый
+            } else {
+                statusButton.setText("✗ Ошибка (" + errorCount + ")");
+                statusButton.setBackgroundColor(Color.parseColor("#F44336")); // Красный
+            }
+            statusButton.setTextColor(Color.WHITE);
+            animateButton();
+        });
+    }
+
+    private void animateButton() {
+        float scale = isCorrect ? 1.05f : 0.95f;
+        statusButton.animate()
+                .scaleX(scale)
+                .scaleY(scale)
+                .setDuration(200)
+                .withEndAction(() -> statusButton.animate()
+                        .scaleX(1f)
+                        .scaleY(1f)
+                        .setDuration(200));
+    }
+
+    private void provideFeedback() {
+        runOnUiThread(() -> {
+            if (!isCorrect) {
+                // Вибрация
+                vibrateDevice();
+
+                // Звук ошибки
+                playSound(errorSound);
+
+                // Подсказка
+                Toast.makeText(MainActivity.this, getRandomErrorTip(), Toast.LENGTH_SHORT).show();
+            } else if (correctCount % 5 == 0) {
+                // Поощрение каждые 5 правильных выполнений
+                playSound(correctSound);
+            }
+        });
+    }
+
+    private void vibrateDevice() {
+        Vibrator vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+        if (vibrator != null) {
+            if (Build.VERSION.SDK_INT >= 26) {
+                vibrator.vibrate(VibrationEffect.createOneShot(150, VibrationEffect.DEFAULT_AMPLITUDE));
+            } else {
+                vibrator.vibrate(150);
+            }
+        }
+    }
+
+    private void playSound(MediaPlayer sound) {
+        try {
+            if (sound != null) {
+                if (sound.isPlaying()) {
+                    sound.seekTo(0);
+                }
+                sound.start();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private String getRandomErrorTip() {
+        String[] tips = {
+                "Держите спину ровнее",
+                "Контролируйте амплитуду",
+                "Выполняйте медленнее",
+                "Следите за дыханием",
+                "Не напрягайте шею"
+        };
+        return tips[random.nextInt(tips.length)];
+    }
+
+    private void showStatisticsAndFinish() {
+        long durationSec = (System.currentTimeMillis() - exerciseStartTime) / 1000;
+        String stats = String.format(
+                "Статистика:\nВремя: %d мин %d сек\nПравильно: %d\nОшибок: %d",
+                durationSec / 60, durationSec % 60, correctCount, errorCount
+        );
+
+        Toast.makeText(this, stats, Toast.LENGTH_LONG).show();
+        finish();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        handler.removeCallbacksAndMessages(null);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        startUpdates();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        releaseMediaPlayers();
+    }
+
+    private void releaseMediaPlayers() {
+        if (correctSound != null) {
+            correctSound.release();
+            correctSound = null;
+        }
+        if (errorSound != null) {
+            errorSound.release();
+            errorSound = null;
+        }
+    }
+}
+
+/*package com.example.a3aaaa;
+
 import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -299,7 +529,7 @@ public class MainActivity extends AppCompatActivity {
             Log.e(TAG, "SecurityException: " + e.getMessage());
         }
     }
-}
+} /*
 
 /*
 package com.example.a3aaaa;

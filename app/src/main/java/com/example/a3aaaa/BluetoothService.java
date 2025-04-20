@@ -1,4 +1,4 @@
-package com.example.a3aaaa;
+//package com.example.a3aaaa;
 
 /*import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;

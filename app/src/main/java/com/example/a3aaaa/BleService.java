@@ -1,4 +1,4 @@
-package com.example.a3aaaa;
+/*package com.example.a3aaaa;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -57,5 +57,7 @@ public class BleService {
     public interface DataListener {
     }
 }
+
+ */
 
 

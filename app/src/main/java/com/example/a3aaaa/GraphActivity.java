@@ -1,4 +1,4 @@
-package com.example.a3aaaa;
+/*package com.example.a3aaaa;
 
 import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
@@ -133,6 +133,8 @@ public class GraphActivity extends AppCompatActivity implements BleService.DataL
         bleService.disconnect();
     }
 }
+
+ */
 
 /* package com.example.a3aaaa;
 
