@@ -1,4 +1,4 @@
-package com.example.a3aaaa;
+/*package com.example.a3aaaa;
 
 import android.content.SharedPreferences;
 import android.os.Bundle;
@@ -40,3 +40,5 @@ public class SettingsActivity extends AppCompatActivity {
         });
     }
 }
+
+ */
